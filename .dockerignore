@@ -5,3 +5,9 @@ node_modules
 
 .eslintrc.cjs
 cypress.config.cjs
+
+# Exclude platform state from developer builds as well as the isolated platform context.
+.git
+.platform
+tmp
+output

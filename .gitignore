@@ -23,3 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 **/screenshots
+.platform/
+tmp/
+
+# Python bootstrap caches
+__pycache__/
+
+# Local cluster credentials
+.kube/

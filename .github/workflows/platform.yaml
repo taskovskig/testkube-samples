@@ -1,0 +1,27 @@
+name: Platform delivery
+on:
+  push:
+    branches: ['**']
+permissions:
+  contents: read
+concurrency:
+  # One shared CI namespace and mutable image aliases: serialize CI and promotion together.
+  group: shared-delivery-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  delivery:
+    permissions:
+      contents: read
+      packages: write
+    uses: taskovskig/platform-tools/.github/workflows/delivery.yaml@v0.6.0
+    secrets: inherit
+  required:
+    name: Platform gate
+    if: always()
+    needs: delivery
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful delivery
+        env:
+          DELIVERY_RESULT: ${{ needs.delivery.result }}
+        run: test "$DELIVERY_RESULT" = success

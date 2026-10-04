@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "cluster": "testkube-platform",
+  "namespace": "testkube-sample",
+  "environments": {
+    "app-ci": {
+      "cluster": "testkube-samples",
+      "context": "kind-testkube-samples",
+      "namespace": "app-ci",
+      "imagePrefix": "ghcr.io/taskovskig/testkube-samples"
+    },
+    "app-dev": {
+      "cluster": "testkube-samples",
+      "context": "kind-testkube-samples",
+      "namespace": "app-dev",
+      "imagePrefix": "ghcr.io/taskovskig/testkube-samples"
+    }
+  },
+  "buildContext": [
+    "apps",
+    "package.json",
+    "package-lock.json",
+    "turbo.json",
+    ".dockerignore"
+  ],
+  "applications": {
+    "api": {
+      "dockerfile": "apps/api/Dockerfile",
+      "image": "sample-api",
+      "values": "deploy/api.values.yaml",
+      "port": 8080,
+      "localPort": 8080
+    },
+    "web": {
+      "dockerfile": "apps/web/Dockerfile",
+      "image": "sample-web",
+      "values": "deploy/web.values.yaml",
+      "port": 4173,
+      "localPort": 4173
+    }
+  },
+  "checks": [
+    {
+      "service": "web",
+      "path": "/",
+      "contains": "<div id=\"root\""
+    },
+    {
+      "service": "api",
+      "path": "/hello?name=developer",
+      "body": "{\"message\":\"hello, developer\"}"
+    },
+    {
+      "service": "api",
+      "path": "/hello-pg",
+      "body": "{\"message\":\"hello world from postgres\"}"
+    }
+  ],
+  "database": {
+    "release": "db",
+    "values": "deploy/db.values.yaml",
+    "statefulset": "db",
+    "pvc": "data-db-0",
+    "secret": "database",
+    "developmentUser": "api-user",
+    "developmentPassword": "api-password",
+    "client": "api",
+    "outageCheck": "tests/platform/database-outage.sh",
+    "developmentName": "api-db"
+  },
+  "legacy": {
+    "release": "testkube-sample",
+    "statefulset": "postgres",
+    "pvc": "data-postgres-0"
+  }
+}

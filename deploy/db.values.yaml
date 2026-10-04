@@ -1,0 +1,4 @@
+# Application-specific overrides; infrastructure defaults come from platform-tools.
+# Keep PostgreSQL version selection explicit and separate from platform upgrades.
+image:
+  tag: 17-bookworm

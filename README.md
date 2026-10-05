@@ -3,16 +3,15 @@
 A sample 3-tier application to run tests on.
 The application is composed of a React frontend, NodeJs backend and a PostgreSQL database.
 
-It can be used to showcase Testkube tests workflows.
+The repository includes application tests and Kubernetes delivery tooling.
 
 ![Testkube Sample Application](./docs/images/app.png)
 
 ## Kubernetes developer platform
 
-Start with the [platform design and critical analysis](PLATFORM-DESIGN.md),
+Start with the [platform architecture](PLATFORM-DESIGN.md),
 or its [shareable PDF](PLATFORM-DESIGN.pdf),
-then follow the [developer guide and demo runbook](DEVELOPER-GUIDE.md).
-See [validation evidence](VALIDATION.md) for what has actually been tested.
+then follow the [developer guide and operational runbook](DEVELOPER-GUIDE.md).
 
 Install the platform CLI once (Python 3.10+, Git and pipx required):
 
@@ -33,8 +32,10 @@ make open
 ```
 
 Open http://localhost:4173. Keep port 8080 available for the API tunnel.
-The platform preserves the application files and Dockerfiles from `main`;
-the browser requires localhost API access; the API now accepts environment-specific database credentials. The shared Helm chart and runtime are owned by [platform-tools](https://github.com/taskovskig/platform-tools).
+Application code remains developer-owned: the web app includes a visible release
+badge, and the API accepts environment-specific database credentials. Builds use
+the developer Dockerfiles. The browser requires localhost API access. The shared
+Helm chart and runtime are owned by [platform-tools](https://github.com/taskovskig/platform-tools).
 The original files in `apps/api/k8s/` are retained as historical examples only.
 
 The shared application chart has separate `api` and `web` releases. PostgreSQL
@@ -81,7 +82,7 @@ git branch --show-current
 git status --short
 ```
 
-For this exercise the branch should be `feature/web-visual-update-v1`. If starting
+For this walkthrough the branch should be `feature/web-visual-update-v1`. If starting
 a future task from a clean checkout, create its branch from current main:
 
 ```sh
@@ -179,11 +180,11 @@ succeed. Workflows use the existing shared cluster.
 
 Wait for the PR's **Platform gate** check to pass. Ask a teammate to review and
 approve the PR, address any feedback, and push corrections to the same branch.
-Each push runs CI again. GitHub does not allow authors to approve their own PR;
-in a solo showcase, merging depends on the repository's configured review rules.
+Each push runs CI again. GitHub does not allow authors to approve their own PR.
+An authorized teammate must provide any approval required by branch protection.
 
 Keep the PR up to date with main and coordinate with other developers: this
-showcase has one shared CI namespace and moving image aliases. Another branch's
+platform has one shared CI namespace and moving image aliases. Another branch's
 CI can replace the images awaiting promotion. Merge after the intended branch's
 CI passes.
 

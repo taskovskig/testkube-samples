@@ -9,7 +9,7 @@ Production is a manual, two-job workflow. It promotes existing application image
 3. Keep the app-prod environment's protection rules and KUBECONFIG, DB_NAME, DB_USER and DB_PASSWORD secrets configured. Restrict its deployment branches to main. The kubeconfig must target kind-testkube-samples with access to app-prod; namespace/RBAC provisioning remains separate.
 4. In Actions, select **Production release**, choose **Run workflow**, and select **main**. A dispatch from another branch is skipped. This implementation releases the selected main commit only; a newer main commit without successful development delivery is rejected.
 
-The first release compares against `productionRelease.initialBaseline` in platform.json. Its default is the original application baseline d7754b564e61b38149f6cc264fa073b308c1e2f5, so the merged platform PR is included. Subsequent releases use the source commit in the previous published production release's manifest.
+The first release requires an explicit full commit SHA in `productionRelease.initialBaseline` in `platform.json`. This application configures the original application baseline `d7754b564e61b38149f6cc264fa073b308c1e2f5`, so the merged platform PR is included. There is no automatic fallback when that configuration is missing. Subsequent releases use the source commit in the previous published production release's manifest. A new release is rejected if its source commit is identical to that previous release; retry the existing workflow run to recover an incomplete deployment instead of dispatching another release for the same source.
 
 ## Job 1: publication (no environment)
 
@@ -30,6 +30,23 @@ This job depends on publication and selects **environment: app-prod**, so GitHub
 After approval, the job reads only app-prod's cluster/database secrets. It verifies the release manifest checksum passed by job 1, the source commit, release identity, image repositories and digests. It rejects older releases if a newer production release record exists. It never resolves latest or dev-latest again.
 
 The job installs or upgrades db, api and web in app-prod, preserving PostgreSQL data. It deploys the application's prod timestamp tags with their exact recorded digests, waits for rollout and runs HTTP checks including the database-backed API response. Failure diagnostics run without modifying image aliases. Production unit/browser/Helm mutation/resilience tests are not run here. GitHub's app-prod deployment status records the outcome.
+
+With platform-tools v0.8.0, the API and web releases record the production tag
+(`prod-YYYYMMDDTHHMMSSZ`) in Helm's **APP VERSION** column. The chart version remains
+independent, and the actual image references include the recorded digests.
+PostgreSQL retains its upstream application version. Existing revisions retain
+their previous metadata until another deployment. To inspect production with
+your authorized kubeconfig:
+
+```sh
+helm --kubeconfig .kube/kubeconfig_macpro \
+  --kube-context kind-testkube-samples -n app-prod ls
+helm --kubeconfig .kube/kubeconfig_macpro \
+  --kube-context kind-testkube-samples -n app-prod get values web --all
+```
+
+Replace the kubeconfig path with your own local file. Inspect `api` the same way
+when checking both image digests.
 
 ## Concurrency, retries and recovery
 

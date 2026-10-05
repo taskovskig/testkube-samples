@@ -29,7 +29,7 @@ The namespace remains deployed after tests for inspection. Failed runs can leave
 it empty or partially deployed; the next CI run resets it again. CI tags and
 packages are not deleted by namespace reset; registry retention is separate work.
 
-Database fault injection (`make resilience`) is an optional showcase drill and
+Database fault injection (`make resilience`) is an optional recovery drill and
 is not part of required delivery CI. It remains available manually and in the
 developer-invoked `make local-tests` suite. In a managed database setup, failover
 and recovery validation would be handled separately from application delivery.
@@ -42,7 +42,9 @@ against the checked-out main tree. Both applications must originate from the sam
 CI build. It then adds/pushes `dev-latest` and upgrades releases in `app-dev` using
 `dev-latest@sha256:<digest>`. Database bootstrap/upgrade preserves existing data and
 credentials. HTTP checks verify the deployed services; destructive CI tests are
-not run in development.
+not run in development. Only after rollout and HTTP checks succeed does promotion
+add the internal `dev-passed` tag. Production publication requires `dev-latest`
+and `dev-passed` to identify the same image.
 
 The source-tree check works with merge, squash and rebase merges when the merged
 source matches the tested feature branch. Require branches to be up to date before
@@ -57,12 +59,38 @@ pending run may replace an older one. Rerun a canceled required check before mer
 This serializes this application's namespace mutations and alias updates; do not
 run manual deployment commands concurrently with the workflow.
 
+## Identifying a deployed build
+
+With platform-tools v0.8.0, the API and web releases show `ci-<run number>` in
+Helm's **APP VERSION** column in both app-ci and app-dev. Development derives this
+version from the promoted image's validated CI build label while its deployed
+image reference remains `dev-latest@sha256:<digest>`. The shared chart version is
+unchanged; each deployment uses a private chart copy with the application metadata.
+PostgreSQL keeps its upstream chart's application version.
+
+Existing revisions retain their original metadata; new deployments record the
+new behavior. Helm rollback restores the selected revision's recorded version
+and image. CI reruns can reuse a run number, so inspect the digest for an exact
+image identity. With an authorized development kubeconfig:
+
+```sh
+helm --kubeconfig .kube/kubeconfig_macpro \
+  --kube-context kind-testkube-samples -n app-dev ls
+helm --kubeconfig .kube/kubeconfig_macpro \
+  --kube-context kind-testkube-samples -n app-dev get values web --all
+```
+
+Replace the kubeconfig path with your own local file. Production records its
+release timestamp tag instead; see [PRODUCTION.md](PRODUCTION.md).
+
 ## GitHub setup and release order
 
 1. Publish the prepared `platform-tools` **v0.8.0** tag before pushing this consumer
    upgrade. The reusable workflow installs the CLI from that tag before fetching
-   the platform package. Commit its release manifest with the release. Both consumer workflow
-   and lock must use that tag and checksum. Keep existing tags unchanged.
+   the platform package. Commit its release manifest with the release. Update
+   `platform.lock.json` with that tag and checksum, and pin both
+   `.github/workflows/platform.yaml` and `.github/workflows/production.yaml`
+   to the same tag. Keep existing tags unchanged.
 2. Keep `app-ci`, `app-dev`, and `app-prod` environments in `testkube-samples`.
    Each `KUBECONFIG` secret must contain a portable kubeconfig, not a file path.
    Prefer separate `platform-deployer` credentials restricted to the corresponding
@@ -84,7 +112,8 @@ run manual deployment commands concurrently with the workflow.
 Platform namespace and RBAC provisioning remains the `platform-tools` main-push
 workflow. It creates `app-ci`, `app-dev`, and `app-prod` with separate deployment
 identities. The `platform-administration` credential in that repo remains separate
-from these application credentials. Use the platform README for provisioning.
+from these application credentials. See [platform provisioning documentation](https://github.com/taskovskig/platform-tools/blob/v0.8.0/PLATFORM.md#cluster-provisioning-on-main);
+the platform README contains only tag-publishing instructions.
 Service-account tokens expire; renew each environment secret before expiry.
 Namespaces share node/control-plane failure domains despite separate RBAC.
 

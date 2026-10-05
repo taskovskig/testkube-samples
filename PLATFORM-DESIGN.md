@@ -76,4 +76,14 @@ and centralized telemetry are not implemented. Browser access requires local tun
 API readiness does not detect database failure. Moving CI aliases can block promotion
 when another branch replaces the tested images.
 
+## Deferred work
+
+The following items were deferred due to the four-hour implementation budget:
+
+- Automated image cleanup. Images currently remain in GHCR; a retention policy
+  should preserve deployed and rollback images before deleting unused builds.
+- A manual workflow to select an existing release, deploy its recorded image
+  digests to app-ci, and run acceptance tests. Current CI builds and tests the
+  pushed branch; it does not support testing an operator-selected release.
+
 For procedures, use README.md, DEVELOPER-GUIDE.md, DEVELOPMENT.md, and PRODUCTION.md.

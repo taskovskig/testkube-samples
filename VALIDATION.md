@@ -77,3 +77,14 @@ The corrected platform was verified locally on macOS ARM64 on 2026-10-03. This r
 - Shared-chart checks, all workflow actionlint checks, shell syntax and whitespace checks passed. The v0.7.0 distribution was verified against the consumer lock using the actual CLI verifier.
 - Updated the operator guide and rendered/visually checked the interview PDF. Existing uncommitted documentation corrections were preserved.
 - No GitHub Release, registry tags, approvals or production deployment were performed. Live publication, PR-association coverage for repository history, environment approval, production RBAC and rollout/HTTP checks must be verified after publishing v0.7.0 and completing successful development delivery from main.
+
+## 2026-10-05: deployed application version metadata
+
+Prepared platform-tools v0.8.0 and matching application pins. All 53 platform
+unit/contract tests pass, including real deployment-script tests with mocked CLI
+boundaries for CI, development, production, and local appVersion selection.
+Chart-copy tests verify source immutability, release isolation, input validation,
+and refusal to overwrite an existing copy. Real Helm lint and `helm show chart`
+confirm appVersion ci-42 while chart version remains 0.3.0. Reusable workflow
+linting passes. No live deployment or tag publication was performed for this
+change; existing cluster revisions retain their previous metadata.

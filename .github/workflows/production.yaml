@@ -15,5 +15,5 @@ jobs:
       packages: write
       actions: read
       pull-requests: read
-    uses: taskovskig/platform-tools/.github/workflows/production.yaml@v0.7.0
+    uses: taskovskig/platform-tools/.github/workflows/production.yaml@v0.8.0
     secrets: inherit

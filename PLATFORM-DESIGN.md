@@ -85,5 +85,15 @@ The following items were deferred due to the four-hour implementation budget:
 - A manual workflow to select an existing release, deploy its recorded image
   digests to app-ci, and run acceptance tests. Current CI builds and tests the
   pushed branch; it does not support testing an operator-selected release.
+- Build only services affected by a PR. For unchanged services, reuse the
+  corresponding `dev-latest` image digest and add the current `ci-<run number>`
+  tag instead of rebuilding. Changes to shared code or build inputs should
+  also trigger builds of affected services.
+  Compare against the source revision recorded in `dev-latest`, including
+  shared code, dependencies, and Dockerfiles; the PR changed-file list alone
+  is insufficient. Resolve `dev-latest` once, then tag and deploy that exact
+  digest. Build the service if no development image exists. Update promotion
+  checks to accept reused images with their original source and build metadata;
+  adding a tag does not change image labels.
 
 For procedures, use README.md, DEVELOPER-GUIDE.md, DEVELOPMENT.md, and PRODUCTION.md.

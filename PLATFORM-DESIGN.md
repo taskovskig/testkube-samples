@@ -4,11 +4,11 @@
 
 ## 1. Recommendation
 
-Give the application team a supported path from source code to a tested Kubernetes deployment: a few familiar commands, application-oriented feedback, and documented recovery steps. Start with versioned containers, declarative manifests, and CI acceptance tests. Add a shared delivery control plane when a shared environment exists.
+Give the application team a supported path from source code to a tested Kubernetes deployment: a few familiar commands, application-oriented feedback, and documented recovery steps. Start with versioned containers, declarative manifests, and CI acceptance tests. Use the same versioned platform tooling for local development and shared CI/development delivery.
 
 The platform is a product for developers. Its success is whether a new developer can deploy, understand a failure, and recover without a platform engineer translating Kubernetes objects for them. Kubernetes adoption itself is not the outcome.
 
-This repository implements a local platform using **kind + Helm + Make**, with a React frontend, Express API, and PostgreSQL. The accompanying CI workflow recreates the environment and runs acceptance checks. The proposed production architecture uses a managed Kubernetes service and managed PostgreSQL, with Git-based promotion and a reconciler such as Argo CD. Those production components are a design, not an implemented claim.
+This showcase implements **kind + Helm + Make**, backed by an installed platform CLI, for a React frontend, Express API, and in-cluster PostgreSQL. Developers can create a local kind cluster; GitHub-hosted CI deploys to an existing shared cluster. Feature pushes reset and test `app-ci`; main pushes promote already-tested images into `app-dev`. Manual production releases publish existing development images and release notes, then deploy to `app-prod` after GitHub environment approval. Managed services and Git reconciliation below are optional production directions, not requirements or implemented capabilities of this showcase.
 
 ## 2. Brief, assumptions, and questions
 
@@ -20,10 +20,10 @@ The following are explicit assumptions, not facts established by the case:
 | --- | --- | --- |
 | One application team and one small service boundary | A repository workflow is a sufficient first interface | Many teams justify service templates and a catalog |
 | GitHub is the collaboration and CI system | Reuses the repository's existing home | Use equivalent controls in the organization's CI |
-| A local, single-user demonstration is acceptable | kind provides an inexpensive acceptance environment | Shared preview environments need identity, quotas and expiry |
+| One shared showcase cluster plus developer-local clusters is acceptable | Local kind is inexpensive; CI reuses the existing cluster | Concurrent teams need isolated previews, quotas and expiry |
 | Initial traffic is modest; no latency or uptime commitment exists | Resource values are starting estimates | Load tests and business SLOs determine capacity |
 | Production data could matter even though this sample only reads a constant | Database recovery is a launch concern | Data classification determines encryption, retention and access |
-| A managed cloud service is available for production | Avoids operating the control plane and database ourselves | Regulatory or hosting constraints may require operators and more staffing |
+| Managed services may be appropriate for a future real production system | Could reduce control-plane and database operations | This showcase uses PostgreSQL in Kubernetes; a real hosting choice needs separate agreement |
 
 Before production, confirm: who uses the app, who is on call, budget and hosting constraints, data classification, expected traffic, uptime expectations, and acceptable data loss and restoration time. Resolve these with product and engineering owners rather than inventing requirements to justify tools.
 
@@ -38,7 +38,7 @@ The application is a small three-tier system, but its original deployment contra
 - Existing Kubernetes examples deployed only the API. The ingress referenced a different Service name, and the image came from a temporary registry.
 - The original API test checked only an HTTP success response; the browser test checked only a counter. Neither demonstrated that all three tiers worked together.
 
-The MVP preserves all files under `apps/`, the root npm manifests and Docker Compose exactly as on `main`. Deployment tooling adapts to the existing contract: two local tunnels, fixed development database credentials, existing-route probes, and writable runtime volumes. Acceptance tests live outside the application tree. Proposed application improvements require a separately agreed developer-owned change; infrastructure must not silently redefine application behavior.
+The MVP preserves the developer Dockerfiles, web application, root npm manifests and Docker Compose. One explicitly agreed API change reads database name, username and password from environment variables, with original defaults for direct local execution; an API unit test covers that behavior. Deployment tooling supplies Secret references, two local tunnels, existing-route probes and writable runtime volumes. Additional browser and outage acceptance tests live outside the application tree. Health status and shutdown improvements remain separate application work.
 
 ## 4. Architecture and developer journey
 
@@ -57,15 +57,35 @@ Browser: localhost:8080 --> API tunnel --> Express --> PostgreSQL
 
 Both tunnels bind only to loopback. The original frontend hardcodes localhost:8080 and the API enables CORS. This supports a laptop demonstration; it does not provide an environment-independent production frontend. Helm supplies an init container to copy the web project to a writable volume for Vite's generated configuration, while preserving the original Dockerfiles and startup commands.
 
-A new developer installs the documented prerequisites, runs `make up`, then `make open`. The application appears at one URL. `make deploy` rebuilds and deploys edits; `make check` verifies the complete request path; `make logs` and `make diagnose` explain operational failures. For rapid source edits, Vite and nodemon provide hot reload against a local development database.
+A new developer installs the documented prerequisites, runs `make setup` to install the pinned CLI through pipx, then `make up` and `make open`. The application appears at one URL. `make deploy` rebuilds and deploys edits; `make check` verifies the complete request path; `make logs` and `make diagnose` explain operational failures. For rapid source edits, Vite and nodemon provide hot reload against a local development database.
 
 The shared application chart in the tagged platform-tools package contains one Deployment and Service. It is installed independently as releases `api` and `web`, using per-service values in `deploy/`. PostgreSQL is release `db`, provisioned by a separately version- and checksum-pinned upstream chart; it is not an application chart dependency. Schema-validated application values configure image, replicas, port, probes, resources and runtime storage. Helm manages upgrades and revision history; the wrapper builds and loads local images and selects their references without modifying tracked files. Every Kubernetes command uses a dedicated kubeconfig and explicit context. The script does not depend on whichever cluster the developer happened to select earlier.
 
-### Production direction
+### Shared CI and development delivery (implemented)
 
 ```text
-Pull request -> unit + build + kind integration + browser checks
-             -> review -> merge -> build once -> registry image digests
+Feature push -> reset app-ci releases and database data
+             -> build api/web -> public GHCR ci-<run> and ci-latest
+             -> install db, api, web -> tests -> mark ci-passed
+Merge to main -> verify tested images and merged source tree
+              -> add dev-latest -> upgrade app-dev -> HTTP checks
+Manual release -> publish prod-<UTC> + latest and PR-delta notes
+               -> app-prod approval -> deploy recorded digests
+```
+
+The existing cluster uses context `kind-testkube-samples`. GitHub environments `app-ci` and `app-dev` supply their KUBECONFIG and DB_NAME, DB_USER and DB_PASSWORD secrets. Hosted runners must reach the API and publish public GHCR images. CI never creates or deletes the cluster. Each namespace owns separate `api`, `web` and `db` releases; development data persists, while every feature run deletes CI releases, the database PVC and its Secret.
+
+One repository-wide concurrency group serializes CI and promotion. GitHub may replace a pending run with a newer pending run; a required canceled check must be rerun. Images deploy as tag-plus-digest references. The `ci-passed` marker is written only after acceptance succeeds. Promotion checks that both latest images match that marker, share a CI build, and have the same source tree as main; it never rebuilds. Another branch moving `ci-latest` can block promotion, so this shared namespace is a deliberate showcase limitation. Require up-to-date branches and the Platform gate before merging. Main deployment occurs after merge; failure cannot undo the merge.
+
+The production workflow runs only from main after successful development delivery. Its first job has no environment: it validates dev-latest against the post-deployment dev-passed marker, records image digests and the source commit in a release asset, publishes prod-UTCtimestamp/latest image tags, and creates a GitHub Release listing merged PRs since the previous published production release. Its second job selects app-prod, waits for environment protection rules, verifies the recorded manifest and deploys exact digests with that environment's database/cluster secrets. Artifacts exist before approval and may remain undeployed. Retries reuse the run's timestamp and snapshot; newer production records block older retries. The shared concurrency lock is held during approval, so CI and development wait. See PRODUCTION.md for operation and first-release baseline details.
+
+`make local-tests` is developer-only and retains the local kind flow. The disruptive `make resilience` drill is optional for the showcase and included in that local suite, but excluded from required delivery CI.
+
+### Future production hardening (not implemented)
+
+```text
+Feature change -> build once -> registry image digests + CI checks
+               -> review -> merge -> select tested image digests
              -> staging environment PR -> Git reconciler -> staging
              -> smoke checks + approval -> production environment PR
              -> Git reconciler -> managed Kubernetes
@@ -83,15 +103,15 @@ An environment repository records reviewed image digests and configuration. CI p
 
 **Priority: essential.** The team is unfamiliar with Kubernetes, so exposing a large chart configuration or asking developers to learn cluster administration would transfer platform work to them. Commands should describe tasks, fail clearly, and link to a runbook. The underlying YAML remains readable as an escape hatch.
 
-Make is broadly available and sufficient for this service. Its limitations are shell portability, installation friction, and less structured validation. If repeated onboarding failures emerge, graduate to a versioned CLI or dev container. A portal comes after a useful workflow; otherwise it merely wraps unreliable steps in a UI.
+Make is broadly available and sufficient for this service. Its limitations are shell portability, installation friction, and less structured validation. The versioned CLI is already installed through `make setup`; a dev container could further reduce prerequisite setup if onboarding evidence justifies it. A portal comes after a useful workflow; otherwise it merely wraps unreliable steps in a UI.
 
 The application team owns application behavior, dependencies, schema changes, and service health. The platform team owns templates, cluster lifecycle, delivery controls, baseline security, and shared telemetry. Both own actionable alerts and incident practice. Platform changes need versioning and a migration path, not silent changes to every team's templates.
 
 ### Versioned platform ownership
 
-Reusable scripts, the shared Helm chart, locked chart-test dependencies and the reusable CI workflow are owned in `taskovskig/platform-tools`. This repository keeps a thin Makefile/bootstrap, declarative service configuration, per-service values and application-specific acceptance tests. Both application Dockerfiles remain developer-owned.
+Reusable scripts, the shared Helm chart, locked chart-test dependencies and the reusable CI workflow are owned in `taskovskig/platform-tools`. This repository keeps a thin Makefile, declarative service configuration, per-service values, application-specific acceptance tests and interview documentation. Bootstrap source, its tests and the PDF renderer live in platform-tools; no bootstrap source is copied into application repositories. Both application Dockerfiles remain developer-owned.
 
-`platform.lock.json` selects a semantic-version Git tag and manifest checksum. The bootstrap verifies the manifest and every packaged file before execution, caches by checksum, and fails on missing or changed tag content. CI references the same tag explicitly. Platform upgrades therefore become application review decisions rather than silent changes. Published tags must remain immutable. Local checkout overrides support pre-release testing and are prohibited in CI.
+`platform.lock.json` selects a semantic-version Git tag, manifest checksum and CLI API compatibility version. `make setup` installs the CLI from the reviewed tag; CI installs it in a runner-local virtual environment. The installed CLI verifies the manifest and every packaged file before execution, caches by checksum, and fails on missing or changed tag content. CI references the same tag explicitly. Platform upgrades therefore become application review decisions rather than silent changes. Published tags must remain immutable. Local checkout overrides support pre-release testing and are prohibited in CI.
 
 Separating repositories introduces a release-order dependency: publish the platform tag before the consumer PR can pass hosted CI. It also adds bootstrap ownership and compatibility work. A shared chart is bundled with its runtime release to avoid independently selecting incompatible versions; environment values and application behavior remain in the application repository.
 
@@ -101,7 +121,7 @@ Separating repositories introduces a release-order dependency: publish the platf
 
 Helm provides a versioned application package, a constrained values interface and standard release history and rollback. The chart keeps health checks and security defaults in templates rather than exposing every Kubernetes field. Template maintenance and one additional client tool are costs we accept for consistent packaging. `helm template` preserves inspectability, and schema plus rendered-resource tests catch configuration mistakes. The upstream repository's separate chart packages Testkube workflows; it does not supply this application deployment. kind is a convenient disposable integration environment, but does not reproduce a cloud load balancer, multi-zone storage, IAM, or production failure modes.
 
-Application images get a unique local release tag. Dependencies use the committed npm lockfile; the kind node uses a digest. The developer Dockerfiles use the floating `node:lts` base and retain development dependencies; PostgreSQL uses a version-line tag, so builds are **not fully immutable**. Production requires digest pinning, automated update PRs, retained registry artifacts, image scanning and provenance. The repository's old dependencies also need a deliberate upgrade and vulnerability triage effort; packaging them in a container does not resolve that risk.
+Local application images get a unique local release tag. Shared CI publishes `ci-<GitHub run number>` and `ci-latest`; reruns can reuse a numbered tag, so deployment also pins the resolved digest. Development uses `dev-latest` with a digest. Dependencies use the committed npm lockfile; the kind node uses a digest. The developer Dockerfiles use the floating `node:lts` base and retain development dependencies; PostgreSQL uses a version-line tag, so builds are **not fully immutable**. Production requires digest pinning, automated update PRs, retained registry artifacts, image scanning and provenance. The repository's old dependencies also need a deliberate upgrade and vulnerability triage effort; packaging them in a container does not resolve that risk.
 
 ### Availability and safe releases
 
@@ -113,19 +133,19 @@ The local rollback command selects `SERVICE=api` or `SERVICE=web` and restores t
 
 ### Data durability and recovery
 
-**Priority: essential before real data.** A local PostgreSQL StatefulSet and PVC demonstrate persistence across pod replacement. They do not provide high availability, off-machine backups, or recovery after cluster deletion. The sample's SQL query reads a constant; a dedicated persistence drill is necessary to prove storage behavior.
+**Priority: essential before real data.** A PostgreSQL StatefulSet and PVC in each deployed namespace demonstrate persistence across pod replacement. They do not provide high availability, off-machine backups, or recovery after cluster deletion. The sample's SQL query reads a constant; a dedicated persistence drill is necessary to prove storage behavior.
 
-For production, choose managed PostgreSQL with automated backups, point-in-time recovery, encryption, monitoring, and a tested restoration procedure. Kubernetes can run databases, but the operational burden needs a reason. Separate the migration role from the application's least-privileged database role; the MVP's initialization user is intentionally a local-only simplification.
+For production, choose managed PostgreSQL with automated backups, point-in-time recovery, encryption, monitoring, and a tested restoration procedure. Kubernetes can run databases, but the operational burden needs a reason. Separate the migration role from the application's least-privileged database role; the showcase's application user is also the initialization superuser in local and shared namespaces, a simplification that requires revisiting before real production use.
 
 No recovery target is implied by the brief. A proposed discussion starting point is RPO of 15 minutes and RTO of one hour. Product and operations must accept or replace those targets, select a service tier, and prove them through restoration drills before promising them.
 
 ### Security and environment boundaries
 
-**Priority: essential for shared environments.** The MVP runs containers as non-root, drops Linux capabilities, uses read-only root filesystems with specific writable volumes, disables service-account token mounts, and enforces the restricted pod-security profile. Both local tunnels bind to loopback. The API hardcodes public development credentials, so PostgreSQL must use api-user/api-password/api-db. A Secret configures PostgreSQL but does not make those known credentials confidential. Local platform state is excluded from the allowlisted Docker build context.
+**Priority: essential for shared environments.** The MVP runs containers as non-root, drops Linux capabilities, uses read-only root filesystems with specific writable volumes, disables service-account token mounts, and enforces the restricted pod-security profile. Both local tunnels bind to loopback. Local deployments read database defaults from `platform.json`. Shared deployments require DB_NAME, DB_USER and DB_PASSWORD from the selected GitHub environment and create a namespace-local `database` Secret. PostgreSQL and the API consume matching keys through Secret references; passwords are not Helm values. Direct local API execution still has sample defaults. Separate environment credentials reduce accidental cross-environment access but do not establish strong isolation. Local platform state is excluded from the allowlisted Docker build context.
 
 These controls do not establish tenant isolation. The default kind network is not presented as a policy enforcement solution. A shared platform needs a CNI that enforces NetworkPolicy, default-deny rules with tested DNS/web/API/database allowances, scoped RBAC, quotas, workload identity, and external secret management. Use TLS and an agreed authentication model for public access. Production and development should have separate access and failure boundaries; namespaces alone are insufficient for hostile tenants.
 
-Secrets in Kubernetes are not protected merely because they are encoded. Restrict reads, configure encryption at rest, audit access, and rotate credentials with the database. Updating a Secret without changing the actual database password can break the application. Retained PVCs must never be silently paired with a regenerated password.
+Secrets in Kubernetes are not protected merely because they are encoded. Restrict reads, configure encryption at rest, audit access, and rotate credentials with the database. Updating a Secret without changing the actual database password can break the application. Retained PVCs must never be silently paired with a regenerated password. The deployment stops when an existing Secret differs from the requested name or credentials, including a legacy Secret missing the database-name key. It does not rotate database credentials. CI initializes fresh data; development initializes on first deployment and retains it thereafter.
 
 ### Operability and cost
 
@@ -141,33 +161,35 @@ Resource requests and limits are estimates, not capacity measurements. Measure u
 | --- | --- | --- |
 | Independent application releases | Tagged platform chart; separate `api` and `web` values | Managed cluster and environment overlays |
 | Developer commands and runbook | Implemented | Onboarding measurement and template versioning |
-| Reproducible acceptance environment | kind, locked npm dependencies, versioned images | Immutable base digests and artifact provenance |
-| CI quality gate | Workflow committed | Hosted execution and required branch checks |
+| Acceptance environments | Local kind; serialized shared app-ci; digest-pinned deployments | Immutable base digests and artifact provenance |
+| CI quality gate | Feature tests and aggregate Platform gate; main promotion checks | Verify branch protection and add production approvals |
 | Health and deployment feedback | Probes, rollout waits, smoke and browser tests | SLOs, telemetry and alerting |
-| Database persistence | Separate `db` release and local PVC | Managed database, backup/restore evidence |
-| Credential handling | Fixed development credentials; production blocker | External store, rotation and scoped database role |
-| Release recovery | Helm release revisions | Git-based promotion, retention, migration policy |
+| Database persistence | Separate `db` release and PVC per deployed namespace | Managed database, backup/restore evidence |
+| Credential handling | Environment secrets shared by API and PostgreSQL; local defaults | External store, rotation and scoped database role |
+| Release recovery | Helm revisions; tested-image promotion and approved app-prod releases | Git-based promotion, retention, migration policy |
 | Security baseline | Non-root restricted workloads | RBAC, enforced network policy, TLS, identity |
 
-The acceptance workflow has read-only repository permissions and creates a disposable cluster. It runs unit tests, a production frontend build, container builds, Kubernetes deployment, HTTP smoke tests, and browser tests, with diagnostic output on failure and cluster cleanup. No deployment to an external account is performed. Hosted CI execution must be verified separately; a committed workflow is not evidence that a GitHub run passed.
+The delivery workflow runs on branch pushes, with repository contents read and packages write permissions. Feature runs reset `app-ci`, build and publish images, run chart validation, API unit tests, frontend build, deployment HTTP checks, Helm release isolation/rollback tests and browser tests. Diagnostics run on failure; runner credentials are removed, but cluster workloads remain for inspection. Helm tests upgrade and roll back api/web, so successful runs normally leave those releases at revision 3 and db at revision 1.
+
+Main runs validate charts, verify image provenance against the tested CI images and merged source tree, retag those images, upgrade `app-dev` and check HTTP contracts including the database-backed endpoint. Unit, browser and Helm mutation tests are not repeated on main. Resilience fault injection is not required CI. The separate manual workflow publishes a production snapshot without an environment, then an app-prod job waits for approval and deploys its recorded digests. Hosted CI success is evidence for the tested commit, not a guarantee of future network availability or production readiness.
 
 See `VALIDATION.md` for observed results and remaining limitations. Evidence should always distinguish a manifest that renders, a container that builds, a pod that is ready, and a browser journey that works.
 
 ## 7. Incremental platform roadmap
 
-1. **Prove the local path.** Complete onboarding with a developer unfamiliar with Kubernetes. Observe failures and improve instructions. Target an initial deployment within 15 minutes after prerequisites and cached downloads, as a hypothesis to measure rather than a claimed result.
-2. **Agree the application contract.** Request configurable credentials and database name, relative or configurable API URLs, production web serving, correct failure status, database-aware readiness and graceful shutdown. These are separate application changes, not included here.
-3. **Establish a shared staging environment.** Provision cloud infrastructure as code, managed PostgreSQL, a registry, TLS entry point, identity and Git reconciliation. Pin and scan images. Require CI checks and test migrations and restoration.
+1. **Prove the local path.** Observe a new developer onboarding and improve instructions. Measure whether initial deployment takes under 15 minutes after prerequisites and cached downloads; this is a target, not a measured result.
+2. **Agree the application contract.** Configurable database credentials and name are implemented and tested. Remaining developer-owned changes are relative or configurable API URLs, production web serving, correct failure status, database-aware readiness and graceful shutdown.
+3. **Harden the implemented shared environments.** app-ci and app-dev already use the existing kind cluster, GHCR and in-cluster PostgreSQL. Add access and capacity evidence, image scanning, TLS, migration checks and restoration drills as needed. A future production hosting and reconciliation model requires a separate decision.
 4. **Meet production readiness criteria.** Agree SLO/RPO/RTO and ownership; test rollback, backup recovery, access restrictions, capacity and meaningful failure scenarios. Measure the actual recovery times.
 5. **Scale the product based on demand.** Add preview environments with quotas and expiry, reusable service templates, and a service catalog when more teams need them. Consider Testkube if centrally scheduled or cross-environment test orchestration becomes a real need; the repository name alone does not justify installing it.
 
-Track onboarding time, deployment lead time, failed-deployment recovery time, change failure rate, and developer support requests. Compare outcomes before and after adoption. Keep a short feedback loop with developers so the platform removes recurring work instead of accumulating features nobody needs.
+Track onboarding time, deployment lead time, recovery time, change failure rate and support requests. Use developer feedback to prioritize improvements.
 
 ## 8. Interview discussion guide
 
-Present the problem and assumptions first, then show the running app and one deployment. Explain why application ownership, honest readiness signals and data recovery matter more than adding a catalog. Walk through a database outage and recovery, and identify which production responsibilities the demo intentionally leaves open.
+Present the problem and assumptions first, then show the running app and one deployment. Explain why application ownership, honest readiness signals and data recovery matter more than adding a catalog. Optionally demonstrate the local database outage/recovery drill, and identify which production responsibilities the demo intentionally leaves open.
 
-Likely questions: Why Kubernetes for a small app? It is a case constraint; outside the case, compare a managed application runtime. Why Helm? It packages the application and provides standard release history while Make keeps the developer commands simple. Why not reuse the upstream chart? It contains Testkube workflow examples, not the application workloads. Why no service mesh? The demonstrated traffic and identity requirements do not require one. Why a database in kind but not the production cluster? Local repeatability and production recovery have different priorities. What would you build next? Shared staging with identity, safe artifact promotion and restoration evidence, based on the team's highest-risk unmet requirement.
+Discussion prompts: Kubernetes is a case constraint; a managed application runtime may suit a real small service. Helm supplies packaging and revision history, while Make and the CLI simplify developer commands. The upstream chart contains Testkube workflows, not application workloads. In-cluster PostgreSQL keeps this showcase self-contained; production hosting requires a separate recovery decision. Next steps should address shared access and restoration evidence before adding a service mesh or catalog.
 
 ## References
 
@@ -177,4 +199,4 @@ Likely questions: Why Kubernetes for a small app? It is a case constraint; outsi
 - [Upstream workflow chart](https://github.com/kubeshop/testkube-samples/tree/main/helm/testkube-samples): Testkube examples, separate from the shared application chart implemented here.
 - [PostgreSQL container documentation](https://hub.docker.com/_/postgres): initialization variables and persistent data directory behavior.
 
-Database packaging: the [groundhog2k PostgreSQL chart](https://github.com/groundhog2k/helm-charts/tree/master/charts/postgres) is pinned at 1.6.8 in the bootstrap. Its upgrade lifecycle is independent of both application releases. Production would replace this local release with separately provisioned managed PostgreSQL.
+- [groundhog2k PostgreSQL chart](https://github.com/groundhog2k/helm-charts/tree/master/charts/postgres): pinned at 1.6.8; independent database upgrades for local and shared deployments.

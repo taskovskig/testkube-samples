@@ -14,6 +14,12 @@
       "context": "kind-testkube-samples",
       "namespace": "app-dev",
       "imagePrefix": "ghcr.io/taskovskig/testkube-samples"
+    },
+    "app-prod": {
+      "cluster": "testkube-samples",
+      "context": "kind-testkube-samples",
+      "namespace": "app-prod",
+      "imagePrefix": "ghcr.io/taskovskig/testkube-samples"
     }
   },
   "buildContext": [
@@ -72,5 +78,8 @@
     "release": "testkube-sample",
     "statefulset": "postgres",
     "pvc": "data-postgres-0"
+  },
+  "productionRelease": {
+    "initialBaseline": "d7754b564e61b38149f6cc264fa073b308c1e2f5"
   }
 }

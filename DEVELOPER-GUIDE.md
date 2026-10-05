@@ -115,7 +115,7 @@ This deliberately deletes the named cluster and all its database data. Local Doc
 
 ## Chart configuration and migration
 
-The shared chart lives in the pinned platform-tools package; `deploy/api.values.yaml` and `deploy/web.values.yaml` configure releases `api` and `web`. `db` uses a separately downloaded, version- and checksum-pinned upstream PostgreSQL chart, configured by `deploy/db.values.yaml`. See [platform chart documentation](https://github.com/taskovskig/platform-tools/tree/v0.6.0/helm).
+The shared chart lives in the pinned platform-tools package; `deploy/api.values.yaml` and `deploy/web.values.yaml` configure releases `api` and `web`. `db` uses a separately downloaded, version- and checksum-pinned upstream PostgreSQL chart, configured by `deploy/db.values.yaml`. See [platform chart documentation](https://github.com/taskovskig/platform-tools/tree/v0.7.0/helm).
 
 Platform v0.2.0 supplies the default kind configuration and generates the namespace and database service account in `.platform/infrastructure/`. The names come from `platform.json`; the namespace retains restricted Pod Security and the service account disables token automount. Optional `kindConfig`, `namespaceManifest`, and `database.serviceAccountManifest` paths can override these defaults when required.
 
@@ -127,9 +127,9 @@ The new database PVC is `data-db-0`. Application rollback never touches it. Data
 
 ## Application ownership and existing installations
 
-All files under apps/, root npm manifests and docker-compose.yaml match main. Application-specific acceptance tests live under tests/platform/. The generic chart checks and YAML parser dependency are owned by platform-tools. Builds use the developer Dockerfiles with an allowlisted tar context; local platform state cannot enter their COPY instructions.
+The developer Dockerfiles, web application, root npm manifests and docker-compose.yaml are preserved. The API has one explicitly agreed change to read DB_NAME, DB_USER and DB_PASSWORD from environment variables, with a corresponding unit test and original defaults for direct local execution. Application-specific acceptance tests live under tests/platform/. The generic chart checks and YAML parser dependency are owned by platform-tools. Builds use the developer Dockerfiles with an allowlisted tar context; local platform state cannot enter their COPY instructions.
 
-The original API ignores database user/password/name environment settings. A cluster from the earlier implementation may contain generated credentials. The wrapper refuses that mismatch instead of changing credentials on an existing PVC. Back up valuable data and plan a database migration; for disposable demo data, use make down CONFIRM=testkube-platform then make up. The original application also lacks database-aware readiness and reliable graceful shutdown; these need separately agreed application changes before production.
+The API and PostgreSQL now use matching Secret references for database name, username and password. Local deployments source these from platform.json; shared deployments require the selected GitHub environment secrets. A cluster from an earlier implementation may contain different credentials or a Secret without POSTGRES_DB. The wrapper refuses that mismatch instead of changing credentials on an existing PVC. Back up valuable data and plan a database migration; for disposable demo data, use make down CONFIRM=testkube-platform then make up. The original application also lacks database-aware readiness and reliable graceful shutdown; these need separately agreed application changes before production.
 
 ## Platform version and ownership
 
@@ -139,7 +139,7 @@ The platform team owns [platform-tools](https://github.com/taskovskig/platform-t
 
 For an upgrade, the platform team updates VERSION, regenerates `distribution.json` with `python3 scripts/release.py`, commits the complete package, and publishes a new annotated tag. Never move published tags. The application team copies the emitted lock JSON and updates the literal tag in `.github/workflows/platform.yaml` in the same PR. The bootstrap rejects mismatched workflow and runtime pins. Both repositories must publish their changes in that order: platform tag first, then application consumer.
 
-This application targets v0.6.0; publish the prepared platform release before pushing the consumer upgrade. For unpublished platform development, use `PLATFORM_TOOLS_DIR=../platform-tools make <target>` explicitly for platform commands. This bypasses release integrity checks for development and is forbidden in CI. The default download path never silently uses the sibling checkout. The platform repository README contains exact tagging instructions.
+This application targets v0.7.0; publish the prepared platform release before pushing the consumer upgrade. For unpublished platform development, use `PLATFORM_TOOLS_DIR=../platform-tools make <target>` explicitly for platform commands. This bypasses release integrity checks for development and is forbidden in CI. The default download path never silently uses the sibling checkout. The platform repository README contains exact tagging instructions.
 
 To roll back tooling, restore both consumer pins to an earlier published release. Tooling rollback does not roll back Helm releases or database data. Review `platform.json` changes for compatibility with the chosen release. Rolling back to v0.1.0 also requires restoring the explicit kind, namespace, and database service-account files and their configuration paths, plus the full database values; revert the consumer migration together with both pins.
 
@@ -152,14 +152,14 @@ for setup, destructive CI reset behavior, image tags and promotion recovery.
 
 Use `make local-tests` for developer-local end-to-end tests. It runs the original
 local kind flow and leaves the cluster available for inspection. No workflow calls
-this command or creates a disposable kind cluster. Production deployment is disabled.
+this command or creates a disposable kind cluster. Production deployment uses the separate manual, approval-gated workflow described in [PRODUCTION.md](PRODUCTION.md).
 
 ### Render the design PDF
 
 Install the CLI with its optional documentation dependency, then render explicitly:
 
 ```sh
-pipx install --force 'platform-tools-cli[docs] @ git+https://github.com/taskovskig/platform-tools.git@v0.6.0'
+pipx install --force 'platform-tools-cli[docs] @ git+https://github.com/taskovskig/platform-tools.git@v0.7.0'
 platform-render-design PLATFORM-DESIGN.md PLATFORM-DESIGN.pdf
 ```
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "taskovskig/platform-tools",
-  "tag": "v0.6.0",
-  "manifestSha256": "69840a3adb55b5aa9fda002d6ef92d72d2706211d021c8650f20e56dffdfc406",
+  "tag": "v0.7.0",
+  "manifestSha256": "40e9d473c448fa1375cfe3e9cbe60e0968f0f4016ed4f3dadd82ae0456f0c431",
   "cliApiVersion": 1
 }

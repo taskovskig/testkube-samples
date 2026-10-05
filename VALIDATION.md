@@ -70,3 +70,10 @@ The corrected platform was verified locally on macOS ARM64 on 2026-10-03. This r
 - All 35 platform tests passed, including missing shared secrets, safe JSON Secret creation with special characters, and generated database Secret references. Cluster and registry boundaries were mocked.
 - Shared-chart tests and workflow lint passed. Rendered the pinned upstream PostgreSQL chart and verified POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD and PGDATABASE reference the namespace-local database Secret. No credentials are placed in Helm values.
 - Prepared v0.6.0 release pins. No live cluster deployment, GitHub secret inspection, commits, tags or pushes were performed. Existing retained databases/legacy Secrets require deliberate migration; fresh CI data and first development deployment use the selected GitHub secrets.
+
+## Production release and approved deployment / platform v0.7.0 (2026-10-05)
+
+- All 49 platform tests passed. New tests cover UTC release identity, PR-delta deduplication, mixed/untested development image rejection, draft snapshot reuse, published retries without retagging, stale-run rejection, manifest tamper detection, exact digest deployment and production namespace guards. GitHub, registry and cluster boundaries were mocked.
+- Shared-chart checks, all workflow actionlint checks, shell syntax and whitespace checks passed. The v0.7.0 distribution was verified against the consumer lock using the actual CLI verifier.
+- Updated the operator guide and rendered/visually checked the interview PDF. Existing uncommitted documentation corrections were preserved.
+- No GitHub Release, registry tags, approvals or production deployment were performed. Live publication, PR-association coverage for repository history, environment approval, production RBAC and rollout/HTTP checks must be verified after publishing v0.7.0 and completing successful development delivery from main.

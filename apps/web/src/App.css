@@ -49,3 +49,13 @@
 .read-the-docs {
   @apply text-mauvedark-11;
 }
+
+.release-badge {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #5eead4;
+  border-radius: 999px;
+  background: #134e4a;
+  color: #ccfbf1;
+  font-weight: 600;
+}

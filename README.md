@@ -116,7 +116,7 @@ The override is rejected in CI. See [the developer guide](DEVELOPER-GUIDE.md#pla
 
 Feature branch pushes reset and test applications in `app-ci`, publishing
 `ci-<run number>` and `ci-latest` images. Main promotes matching tested images to
-`dev-latest` and upgrades `app-dev` without rebuilding. `app-prod` is reserved.
+`dev-latest` and upgrades `app-dev` without rebuilding. `app-prod` is deployed through the manually triggered, approval-gated [production release workflow](PRODUCTION.md).
 Workflows use the existing cluster; `make local-tests` runs the developer-only
 local kind acceptance flow. See [delivery setup and operations](DEVELOPMENT.md)
-for v0.6.0 publication, environment secrets, reset semantics and promotion checks.
+for v0.7.0 publication, environment secrets, reset semantics and promotion checks.

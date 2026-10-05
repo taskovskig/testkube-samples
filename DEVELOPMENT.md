@@ -2,8 +2,7 @@
 
 The application workflow runs on branch pushes only. Non-main branches use GitHub
 environment `app-ci`; pushes to `main` use `app-dev`. Each environment supplies its
-own `KUBECONFIG` secret for context `kind-testkube-samples`. `app-prod` is provisioned
-but has no application deployment workflow. No workflow creates a disposable kind
+own `KUBECONFIG` secret for context `kind-testkube-samples`. `app-prod` is deployed separately through the manually triggered, approval-gated [production release workflow](PRODUCTION.md). No workflow creates a disposable kind
 cluster. Pull requests do not trigger a duplicate run.
 
 ## Feature branch pushes: app-ci
@@ -60,7 +59,7 @@ run manual deployment commands concurrently with the workflow.
 
 ## GitHub setup and release order
 
-1. Publish the prepared `platform-tools` **v0.6.0** tag before pushing this consumer
+1. Publish the prepared `platform-tools` **v0.7.0** tag before pushing this consumer
    upgrade. The reusable workflow installs the CLI from that tag before fetching
    the platform package. Commit its release manifest with the release. Both consumer workflow
    and lock must use that tag and checksum. Keep existing tags unchanged.
@@ -80,7 +79,7 @@ run manual deployment commands concurrently with the workflow.
 5. Require **Platform gate** on `main` and require the feature branch to be up to
    date. The check now comes from the feature-branch push, not a PR-triggered job.
    A passed CI check permits merging; development promotion runs after the merge,
-   so its failure cannot undo a merge. No production promotion is configured.
+   so its failure cannot undo a merge. Production promotion is manual and approval-gated; see [PRODUCTION.md](PRODUCTION.md).
 
 Platform namespace and RBAC provisioning remains the `platform-tools` main-push
 workflow. It creates `app-ci`, `app-dev`, and `app-prod` with separate deployment
@@ -125,7 +124,7 @@ Helm rollback; it does not automatically restore all previously deployed release
 
 ## Database credentials
 
-Configure `DB_NAME`, `DB_USER`, and `DB_PASSWORD` alongside `KUBECONFIG` in each GitHub environment. Shared deployment fails if any database secret is empty. For example, app-ci can use `ci-api-db` / `ci-api-user`, while app-dev uses its own values. app-prod secrets are reserved for a future production workflow; production deployment remains disabled.
+Configure `DB_NAME`, `DB_USER`, and `DB_PASSWORD` alongside `KUBECONFIG` in each GitHub environment. Shared deployment fails if any database secret is empty. For example, app-ci can use `ci-api-db` / `ci-api-user`, while app-dev uses its own values. app-prod secrets are used only by the approved production deployment job; see [PRODUCTION.md](PRODUCTION.md).
 
 The platform creates the namespace-local `database` Kubernetes Secret with `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. PostgreSQL and the API consume matching values through Secret references, not plaintext Helm values. Host `db` and port `5432` remain ordinary API configuration. PostgreSQL readiness checks use the configured database via `PGDATABASE`.
 

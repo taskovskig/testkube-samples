@@ -115,7 +115,7 @@ This deliberately deletes the named cluster and all its database data. Local Doc
 
 ## Chart configuration and migration
 
-The shared chart lives in the pinned platform-tools package; `deploy/api.values.yaml` and `deploy/web.values.yaml` configure releases `api` and `web`. `db` uses a separately downloaded, version- and checksum-pinned upstream PostgreSQL chart, configured by `deploy/db.values.yaml`. See [platform chart documentation](https://github.com/taskovskig/platform-tools/tree/v0.7.0/helm).
+The shared chart lives in the pinned platform-tools package; `deploy/api.values.yaml` and `deploy/web.values.yaml` configure releases `api` and `web`. `db` uses a separately downloaded, version- and checksum-pinned upstream PostgreSQL chart, configured by `deploy/db.values.yaml`. See [platform chart documentation](https://github.com/taskovskig/platform-tools/tree/v0.8.0/helm).
 
 Platform v0.2.0 supplies the default kind configuration and generates the namespace and database service account in `.platform/infrastructure/`. The names come from `platform.json`; the namespace retains restricted Pod Security and the service account disables token automount. Optional `kindConfig`, `namespaceManifest`, and `database.serviceAccountManifest` paths can override these defaults when required.
 
@@ -139,7 +139,7 @@ The platform team owns [platform-tools](https://github.com/taskovskig/platform-t
 
 For an upgrade, the platform team updates VERSION, regenerates `distribution.json` with `python3 scripts/release.py`, commits the complete package, and publishes a new annotated tag. Never move published tags. The application team copies the emitted lock JSON and updates the literal tag in `.github/workflows/platform.yaml` in the same PR. The bootstrap rejects mismatched workflow and runtime pins. Both repositories must publish their changes in that order: platform tag first, then application consumer.
 
-This application targets v0.7.0; publish the prepared platform release before pushing the consumer upgrade. For unpublished platform development, use `PLATFORM_TOOLS_DIR=../platform-tools make <target>` explicitly for platform commands. This bypasses release integrity checks for development and is forbidden in CI. The default download path never silently uses the sibling checkout. The platform repository README contains exact tagging instructions.
+This application targets v0.8.0; publish the prepared platform release before pushing the consumer upgrade. For unpublished platform development, use `PLATFORM_TOOLS_DIR=../platform-tools make <target>` explicitly for platform commands. This bypasses release integrity checks for development and is forbidden in CI. The default download path never silently uses the sibling checkout. The platform repository README contains exact tagging instructions.
 
 To roll back tooling, restore both consumer pins to an earlier published release. Tooling rollback does not roll back Helm releases or database data. Review `platform.json` changes for compatibility with the chosen release. Rolling back to v0.1.0 also requires restoring the explicit kind, namespace, and database service-account files and their configuration paths, plus the full database values; revert the consumer migration together with both pins.
 
@@ -159,10 +159,25 @@ this command or creates a disposable kind cluster. Production deployment uses th
 Install the CLI with its optional documentation dependency, then render explicitly:
 
 ```sh
-pipx install --force 'platform-tools-cli[docs] @ git+https://github.com/taskovskig/platform-tools.git@v0.7.0'
+pipx install --force 'platform-tools-cli[docs] @ git+https://github.com/taskovskig/platform-tools.git@v0.8.0'
 platform-render-design PLATFORM-DESIGN.md PLATFORM-DESIGN.pdf
 ```
 
 `platform-tools --version` shows the installed CLI; `make platform-version` shows this application's pinned platform release. The lock's `cliApiVersion` is checked before platform execution.
 
 Database credentials now come from the local defaults in `platform.json` or the selected GitHub environment secrets. The API reads DB_NAME, DB_USER and DB_PASSWORD from the namespace-local Secret. See [database credential setup](DEVELOPMENT.md#database-credentials), including migration of old local Secrets.
+
+## Identifying deployed application builds
+
+With platform-tools v0.8.0, `helm ls` and `helm history` record the application
+version for each API and web release. app-ci and app-dev display `ci-<run number>`;
+app-dev still deploys the digest-pinned dev-latest image, but its APP VERSION shows
+the original tested CI build. app-prod displays `prod-YYYYMMDDTHHMMSSZ`. Local
+releases display their generated image tag. The CHART column continues to show
+the shared chart version; PostgreSQL retains its upstream application version.
+
+These values appear on the next deployment, without changing existing revisions.
+A rollback restores the selected revision's recorded version and image. CI reruns
+can reuse a run number, so use `helm get values api --all` (or web) and inspect the
+image digest when an exact image identity is needed. Publish platform-tools
+v0.8.0 before pushing this consumer upgrade.

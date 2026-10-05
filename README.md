@@ -97,7 +97,7 @@ make setup
 make platform-version
 ```
 
-This checkout pins platform **v0.7.0**. The platform team publishes that release;
+This checkout pins platform **v0.8.0**. The platform team publishes that release;
 an ordinary application change does not require a platform release or pin update.
 
 ### 2. Edit the web app and run local acceptance
@@ -330,4 +330,4 @@ Feature branch pushes reset and test applications in `app-ci`, publishing
 `dev-latest` and upgrades `app-dev` without rebuilding. `app-prod` is deployed through the manually triggered, approval-gated [production release workflow](PRODUCTION.md).
 Workflows use the existing cluster; `make local-tests` runs the developer-only
 local kind acceptance flow. See [delivery setup and operations](DEVELOPMENT.md)
-for v0.7.0 publication, environment secrets, reset semantics and promotion checks.
+for v0.8.0 publication, environment secrets, reset semantics and promotion checks.

@@ -4,7 +4,7 @@ Production is a manual, two-job workflow. It promotes existing application image
 
 ## Prerequisites and first run
 
-1. Publish platform-tools v0.7.0, then merge the matching application pins and production configuration into main.
+1. Publish platform-tools v0.8.0, then merge the matching application pins and production configuration into main.
 2. Wait for that main commit's **Platform delivery** workflow to succeed. It deploys dev-latest and writes an internal dev-passed marker only after rollout and HTTP checks succeed. Older tooling did not write this marker.
 3. Keep the app-prod environment's protection rules and KUBECONFIG, DB_NAME, DB_USER and DB_PASSWORD secrets configured. Restrict its deployment branches to main. The kubeconfig must target kind-testkube-samples with access to app-prod; namespace/RBAC provisioning remains separate.
 4. In Actions, select **Production release**, choose **Run workflow**, and select **main**. A dispatch from another branch is skipped. This implementation releases the selected main commit only; a newer main commit without successful development delivery is rejected.

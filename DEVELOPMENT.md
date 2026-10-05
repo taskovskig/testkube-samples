@@ -59,7 +59,7 @@ run manual deployment commands concurrently with the workflow.
 
 ## GitHub setup and release order
 
-1. Publish the prepared `platform-tools` **v0.7.0** tag before pushing this consumer
+1. Publish the prepared `platform-tools` **v0.8.0** tag before pushing this consumer
    upgrade. The reusable workflow installs the CLI from that tag before fetching
    the platform package. Commit its release manifest with the release. Both consumer workflow
    and lock must use that tag and checksum. Keep existing tags unchanged.

@@ -1,4 +1,4 @@
-# Local testing and showcase guide
+# Local acceptance and recovery runbook
 
 Run the steps in order from the repository root. See the [developer guide](DEVELOPER-GUIDE.md) for prerequisites and troubleshooting.
 
@@ -9,7 +9,7 @@ cd /path/to/your/testkube-samples
 ## 1. Install the platform CLI and dependencies
 
 Python 3.10+ and pipx are required for the CLI; Node 24 is required for the tests.
-Use the default local environment for this showcase, with `CI` and
+Use the default local environment for this runbook, with `CI` and
 `PLATFORM_ENVIRONMENT` unset.
 
 ```sh
@@ -74,7 +74,7 @@ make resilience
 
 `make resilience` verifies that a SQL row survives database pod replacement, temporarily stops the database, and restores it. The API stays Ready and returns HTTP 200 with a failure message during the outage; the test explicitly checks this limitation and verifies recovery afterward.
 
-## 5. Run browser tests and demonstrate the UI
+## 5. Run browser tests and verify the UI
 
 In the first terminal, keep both local tunnels running:
 
@@ -90,7 +90,7 @@ make browser-test
 
 Expect **1 original browser test and 3 platform browser tests** to pass.
 
-Visit **http://localhost:4173** to demonstrate the application manually:
+Visit **http://localhost:4173** to verify the application manually:
 
 1. Confirm the teal **Web visual update v1** badge appears below the heading.
 2. Click the counter and confirm it increments.

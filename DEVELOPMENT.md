@@ -29,7 +29,7 @@ The namespace remains deployed after tests for inspection. Failed runs can leave
 it empty or partially deployed; the next CI run resets it again. CI tags and
 packages are not deleted by namespace reset; registry retention is separate work.
 
-Database fault injection (`make resilience`) is an optional showcase drill and
+Database fault injection (`make resilience`) is an optional recovery drill and
 is not part of required delivery CI. It remains available manually and in the
 developer-invoked `make local-tests` suite. In a managed database setup, failover
 and recovery validation would be handled separately from application delivery.
